@@ -2,6 +2,30 @@
 #include <Mesh.h>
 #include "MyMesh.h"
 
+//Dry-Contact Input on GPIO4
+static bool contact_state = HIGH;
+static bool contact_raw_last = HIGH;
+static uint32_t contact_last_change_ms = 0;
+
+// Returns true only when the debounced contact state changes.
+static bool checkContactInput() {
+  bool raw = digitalRead(CONTACT_PIN);
+  uint32_t now = millis();
+
+  if (raw != contact_raw_last) {
+    contact_raw_last = raw;
+    contact_last_change_ms = now;
+  }
+
+  if ((now - contact_last_change_ms) >= CONTACT_DEBOUNCE_MS &&
+      raw != contact_state) {
+    contact_state = raw;
+    return true;
+  }
+
+  return false;
+}
+
 // Believe it or not, this std C function is busted on some platforms!
 static uint32_t _atoi(const char* sp) {
   uint32_t n = 0;
@@ -135,6 +159,13 @@ void halt() {
 void setup() {
   Serial.begin(115200);
   board.begin();
+
+  pinMode(CONTACT_PIN, INPUT_PULLUP);
+
+  // Establish the initial state without reporting a false alarm.
+  contact_state = digitalRead(CONTACT_PIN);
+  contact_raw_last = contact_state;
+  contact_last_change_ms = millis();
 
 #ifdef HAS_EXTERNAL_WATCHDOG
   external_watchdog.begin();
@@ -293,7 +324,15 @@ void loop() {
   the_mesh.loop();
   interface_manager.loop();
   sensors.loop();
-#ifdef DISPLAY_CLASS
+
+  if (checkContactInput()) {
+    // contact_state == HIGH: contact opened, alarm
+    // contact_state == LOW:  contact closed, normal
+    //
+    // MeshCore alarm transmission will be added here.
+  }
+  
+  #ifdef DISPLAY_CLASS
   ui_task.loop();
 #endif
   rtc_clock.tick();
