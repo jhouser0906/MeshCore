@@ -181,6 +181,7 @@ public:
   bool getChannel(int idx, ChannelDetails& dest);
   bool setChannel(int idx, const ChannelDetails& src);
   int findChannelIdx(const mesh::GroupChannel& ch);
+  bool sendChannelText(uint8_t channel_idx, const char* text);
 
   void loop();
 };
